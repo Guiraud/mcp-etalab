@@ -19,11 +19,6 @@ class EtalabMCPServer {
       {
         name: 'mcp-etalab',
         version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
       }
     );
 
