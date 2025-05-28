@@ -18,14 +18,14 @@ Ouvrez le fichier `claude_desktop_config.json` et ajoutez la configuration suiva
   "mcpServers": {
     "mcp-etalab": {
       "command": "node",
-      "args": ["/Users/mguiraud/Documents/MCPs/mcp-etalab/dist/index.js"],
+      "args": ["/Chemin/vers/mcp-etalab/dist/index.js"],
       "env": {}
     }
   }
 }
 ```
 
-**Important**: Assurez-vous que le chemin `/Users/mguiraud/Documents/MCPs/mcp-etalab/dist/index.js` est correct et que le projet a été compilé avec `npm run build`.
+**Important**: Assurez-vous que le chemin `/chemin/vers/MCPs/mcp-etalab/dist/index.js` est correct et que le projet a été compilé avec `npm run build`.
 
 ### 3. Redémarrer Claude Desktop
 
@@ -86,7 +86,7 @@ Voici quelques exemples de requêtes que vous pouvez faire à Claude une fois le
 
 ### Le serveur ne démarre pas
 1. Vérifiez que Node.js est installé : `node --version`
-2. Vérifiez que le projet est compilé : `cd /Users/mguiraud/Documents/MCPs/mcp-etalab && npm run build`
+2. Vérifiez que le projet est compilé : `cd /chemin/vers/MCPs/mcp-etalab && npm run build`
 3. Testez manuellement : `npm run dev`
 
 ### Claude Desktop ne voit pas le serveur

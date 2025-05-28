@@ -26,6 +26,13 @@ const GetOrganizationSchema = z.object({
   id: z.string().describe('ID de l\'organisation'),
 });
 
+const DownloadResourceSchema = z.object({
+  url: z.string().describe('URL de la ressource à télécharger'),
+  format: z.string().optional().describe('Format attendu (CSV, JSON, XML, etc.)'),
+  maxSize: z.number().default(10).describe('Taille maximale en MB (défaut: 10MB)'),
+  preview: z.boolean().default(true).describe('Aperçu seulement (100 premières lignes)'),
+});
+
 export class DataGouvService {
   private client: AxiosInstance;
   private baseUrl = 'https://data.gouv.fr/api/1';
@@ -88,7 +95,7 @@ export class DataGouvService {
       const dataset = response.data;
 
       const resources = dataset.resources?.slice(0, 10).map(r => 
-        `- **${r.title}** (${r.format}) - ${r.filesize ? `${Math.round(r.filesize / 1024)} Ko` : 'Taille inconnue'}\n  ${r.url}`
+        `- **${r.title}** (${r.format}) - ${r.filesize ? `${Math.round(r.filesize / 1024)} Ko` : 'Taille inconnue'}\n  URL: ${r.url}`
       ).join('\n') || 'Aucune ressource';
 
       return {
@@ -107,7 +114,8 @@ export class DataGouvService {
                   `## Métriques\n` +
                   `- Vues: ${dataset.metrics?.views || 0}\n` +
                   `- Téléchargements: ${dataset.metrics?.downloads || 0}\n` +
-                  `- Réutilisations: ${dataset.metrics?.reuses || 0}`,
+                  `- Réutilisations: ${dataset.metrics?.reuses || 0}\n\n` +
+                  `💡 **Conseil:** Copiez l'URL d'une ressource pour la télécharger avec "download_resource"`,
           },
         ],
       };
@@ -175,5 +183,160 @@ export class DataGouvService {
     } catch (error) {
       throw new Error(`Erreur lors de la récupération de l'organisation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
+  }
+
+  async downloadResource(args: unknown) {
+    const { url, format, maxSize, preview } = DownloadResourceSchema.parse(args);
+    
+    try {
+      // Vérifier la taille du fichier d'abord
+      const headResponse = await this.client.head(url);
+      const contentLength = headResponse.headers['content-length'];
+      
+      if (contentLength) {
+        const sizeMB = parseInt(contentLength) / (1024 * 1024);
+        if (sizeMB > maxSize) {
+          throw new Error(`Fichier trop volumineux: ${sizeMB.toFixed(2)}MB (limite: ${maxSize}MB)`);
+        }
+      }
+
+      // Télécharger le contenu
+      const response = await this.client.get(url, {
+        responseType: 'text',
+        timeout: 30000,
+      });
+
+      const data = response.data;
+      const detectedFormat = this.detectFormat(url, response.headers['content-type']);
+      
+      // Traitement selon le format
+      if (detectedFormat === 'CSV') {
+        return this.processCSVData(data, preview);
+      } else if (detectedFormat === 'JSON') {
+        return this.processJSONData(data, preview);
+      } else if (detectedFormat === 'XML') {
+        return this.processXMLData(data, preview);
+      } else {
+        return this.processTextData(data, preview, detectedFormat);
+      }
+
+    } catch (error: any) {
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        throw new Error(`Impossible d'accéder à la ressource: ${url}`);
+      }
+      throw new Error(`Erreur lors du téléchargement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  private detectFormat(url: string, contentType?: string): string {
+    // Détecter le format depuis l'URL
+    const urlLower = url.toLowerCase();
+    if (urlLower.includes('.csv')) return 'CSV';
+    if (urlLower.includes('.json')) return 'JSON';
+    if (urlLower.includes('.xml')) return 'XML';
+    if (urlLower.includes('.txt')) return 'TXT';
+    
+    // Détecter depuis le Content-Type
+    if (contentType) {
+      if (contentType.includes('csv')) return 'CSV';
+      if (contentType.includes('json')) return 'JSON';
+      if (contentType.includes('xml')) return 'XML';
+    }
+    
+    return 'UNKNOWN';
+  }
+
+  private processCSVData(data: string, preview: boolean) {
+    const lines = data.split('\n').filter(line => line.trim());
+    const headers = lines[0];
+    const dataLines = lines.slice(1);
+    
+    const displayLines = preview ? dataLines.slice(0, 100) : dataLines;
+    const sample = displayLines.slice(0, 5);
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Données CSV téléchargées\n\n` +
+                `**Format:** CSV\n` +
+                `**Nombre de lignes:** ${dataLines.length}\n` +
+                `**Colonnes:** ${headers.split(',').length}\n` +
+                `**Aperçu:** ${preview ? 'Oui (100 premières lignes)' : 'Complet'}\n\n` +
+                `## En-têtes\n\`\`\`\n${headers}\n\`\`\`\n\n` +
+                `## Échantillon (5 premières lignes)\n\`\`\`csv\n${headers}\n${sample.join('\n')}\n\`\`\`\n\n` +
+                `## Analyse\n` +
+                `- **Colonnes détectées:** ${headers.split(',').map(h => h.trim()).join(', ')}\n` +
+                `- **Lignes disponibles:** ${displayLines.length}${preview && dataLines.length > 100 ? ' (tronqué)' : ''}\n` +
+                `- **Utilisable pour:** Analyse de données, visualisations, statistiques\n\n` +
+                `💡 **Conseil:** Vous pouvez maintenant me demander d'analyser ces données, créer des graphiques, ou calculer des statistiques !`,
+        },
+      ],
+    };
+  }
+
+  private processJSONData(data: string, preview: boolean) {
+    try {
+      const jsonData = JSON.parse(data);
+      const isArray = Array.isArray(jsonData);
+      const sample = isArray ? jsonData.slice(0, 3) : jsonData;
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `# Données JSON téléchargées\n\n` +
+                  `**Format:** JSON\n` +
+                  `**Type:** ${isArray ? `Array (${jsonData.length} éléments)` : 'Object'}\n` +
+                  `**Aperçu:** ${preview ? 'Oui (structure seulement)' : 'Complet'}\n\n` +
+                  `## Structure\n\`\`\`json\n${JSON.stringify(sample, null, 2)}\n\`\`\`\n\n` +
+                  `## Analyse\n` +
+                  `- **Éléments:** ${isArray ? jsonData.length : 'Objet unique'}\n` +
+                  `- **Utilisable pour:** Analyse de données structurées, extraction d'informations\n\n` +
+                  `💡 **Conseil:** Je peux analyser ces données JSON et extraire des informations spécifiques !`,
+          },
+        ],
+      };
+    } catch (error) {
+      throw new Error('Format JSON invalide');
+    }
+  }
+
+  private processXMLData(data: string, preview: boolean) {
+    const lines = data.split('\n');
+    const displayLines = preview ? lines.slice(0, 50) : lines;
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Données XML téléchargées\n\n` +
+                `**Format:** XML\n` +
+                `**Lignes:** ${lines.length}\n` +
+                `**Aperçu:** ${preview ? 'Oui (50 premières lignes)' : 'Complet'}\n\n` +
+                `## Contenu\n\`\`\`xml\n${displayLines.join('\n')}\n\`\`\`\n\n` +
+                `💡 **Conseil:** Je peux parser ce XML et extraire des données spécifiques !`,
+        },
+      ],
+    };
+  }
+
+  private processTextData(data: string, preview: boolean, format: string) {
+    const lines = data.split('\n');
+    const displayLines = preview ? lines.slice(0, 100) : lines;
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `# Données téléchargées\n\n` +
+                `**Format:** ${format}\n` +
+                `**Lignes:** ${lines.length}\n` +
+                `**Aperçu:** ${preview ? 'Oui (100 premières lignes)' : 'Complet'}\n\n` +
+                `## Contenu\n\`\`\`\n${displayLines.join('\n')}\n\`\`\`\n\n` +
+                `💡 **Conseil:** Ces données sont maintenant disponibles pour analyse !`,
+        },
+      ],
+    };
   }
 }

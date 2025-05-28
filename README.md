@@ -25,6 +25,24 @@ npm run dev
 - `get_dataset` - Obtenir les détails d'un dataset
 - `list_organizations` - Lister les organisations
 - `get_organization` - Détails d'une organisation
+- `download_resource` - **NOUVEAU** Télécharger et analyser des données (CSV, JSON, XML)
+
+## 🆕 Nouvelles fonctionnalités
+
+### Téléchargement et analyse de données
+Le serveur peut maintenant télécharger directement les ressources de données et les analyser :
+
+- **Formats supportés** : CSV, JSON, XML, TXT
+- **Analyse automatique** : Détection de format, structure, colonnes
+- **Aperçu intelligent** : Échantillons de données pour exploration
+- **Utilisation dans la conversation** : Les données téléchargées sont analysables par Claude
+
+### Exemple d'utilisation
+
+1. **Rechercher un dataset** : `"Trouve-moi des datasets sur les transports"`
+2. **Obtenir les détails** : `"Montre-moi les ressources du dataset XYZ"`
+3. **Télécharger les données** : `"Télécharge cette ressource CSV: [URL]"`
+4. **Analyser** : `"Peux-tu analyser ces données et me faire un résumé ?"`
 
 ## 🔧 Configuration
 

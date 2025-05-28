@@ -48,6 +48,8 @@ class EtalabMCPServer {
             return await this.dataGouvService.listOrganizations(args);
           case 'get_organization':
             return await this.dataGouvService.getOrganization(args);
+          case 'download_resource':
+            return await this.dataGouvService.downloadResource(args);
           default:
             throw new Error(`Outil inconnu: ${name}`);
         }

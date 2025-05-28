@@ -90,5 +90,35 @@ export function setupTools(): Tool[] {
         required: ['id'],
       },
     },
+    {
+      name: 'download_resource',
+      description: 'Télécharger et analyser une ressource de données',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'URL de la ressource à télécharger',
+          },
+          format: {
+            type: 'string',
+            description: 'Format attendu (CSV, JSON, XML, etc.) - optionnel',
+          },
+          maxSize: {
+            type: 'number',
+            description: 'Taille maximale en MB (défaut: 10MB)',
+            default: 10,
+            minimum: 1,
+            maximum: 100,
+          },
+          preview: {
+            type: 'boolean',
+            description: 'Aperçu seulement (100 premières lignes) - défaut: true',
+            default: true,
+          },
+        },
+        required: ['url'],
+      },
+    },
   ];
 }
