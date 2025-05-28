@@ -5,6 +5,7 @@
 ### 1. **Taille maximale des fichiers**
 
 #### Option A : Modification par défaut
+
 Éditez le fichier `src/config/index.ts` :
 
 ```typescript
@@ -19,7 +20,9 @@ export const Config = {
 ```
 
 #### Option B : Modification à l'utilisation
+
 L'utilisateur peut spécifier la limite lors de l'appel :
+
 ```json
 {
   "name": "download_resource",
@@ -33,6 +36,7 @@ L'utilisateur peut spécifier la limite lors de l'appel :
 ### 2. **Nombre de lignes d'aperçu**
 
 Dans `src/config/index.ts` :
+
 ```typescript
 preview: {
   csvMaxLines: 1000,      // Lignes CSV (défaut: 500)
@@ -75,17 +79,20 @@ Puis redémarrez Claude Desktop.
 
 ## 💡 **Recommandations**
 
-### Limites raisonnables :
+### Limites raisonnables
+
 - **Fichiers** : 50-100MB (équilibre performance/utilité)
 - **Timeout** : 60-120s (selon votre connexion)
 - **Aperçu CSV** : 500-1000 lignes (évite la surcharge)
 
-### Pour gros datasets :
+### Pour gros datasets
+
 - Utilisez `preview: false` pour voir tout
 - Augmentez `maxSize` selon vos besoins
 - Considérez le découpage en plusieurs requêtes
 
-### Surveillance :
+### Surveillance
+
 - Surveillez la mémoire de Claude Desktop
 - Les gros fichiers peuvent ralentir l'interface
 - Préférez l'analyse par chunks pour >50MB
@@ -93,6 +100,7 @@ Puis redémarrez Claude Desktop.
 ## 🔍 **Variables d'environnement (optionnel)**
 
 Vous pouvez aussi créer un fichier `.env` :
+
 ```bash
 MCP_ETALAB_MAX_SIZE=100
 MCP_ETALAB_TIMEOUT=120000
