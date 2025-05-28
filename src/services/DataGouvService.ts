@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { z } from 'zod';
 import type { Dataset, Organization, SearchResponse } from '../types/index.js';
+import { Config } from '../config/index.js';
 
 // Schémas de validation Zod
 const SearchDatasetsSchema = z.object({
@@ -29,8 +30,8 @@ const GetOrganizationSchema = z.object({
 const DownloadResourceSchema = z.object({
   url: z.string().describe('URL de la ressource à télécharger'),
   format: z.string().optional().describe('Format attendu (CSV, JSON, XML, etc.)'),
-  maxSize: z.number().default(10).describe('Taille maximale en MB (défaut: 10MB)'),
-  preview: z.boolean().default(true).describe('Aperçu seulement (100 premières lignes)'),
+  maxSize: z.number().default(Config.download.maxSizeMB).describe(`Taille maximale en MB (défaut: ${Config.download.maxSizeMB}MB)`),
+  preview: z.boolean().default(true).describe(`Aperçu seulement (${Config.preview.csvMaxLines} premières lignes)`),
 });
 
 export class DataGouvService {
@@ -39,10 +40,10 @@ export class DataGouvService {
 
   constructor() {
     this.client = axios.create({
-      baseURL: this.baseUrl,
-      timeout: 10000,
+      baseURL: Config.api.baseUrl,
+      timeout: Config.api.timeoutMs,
       headers: {
-        'User-Agent': 'MCP-Etalab/1.0.0',
+        'User-Agent': Config.api.userAgent,
         'Accept': 'application/json',
       },
     });
@@ -203,7 +204,7 @@ export class DataGouvService {
       // Télécharger le contenu
       const response = await this.client.get(url, {
         responseType: 'text',
-        timeout: 30000,
+        timeout: Config.download.timeoutMs,
       });
 
       const data = response.data;
@@ -251,8 +252,8 @@ export class DataGouvService {
     const headers = lines[0];
     const dataLines = lines.slice(1);
     
-    const displayLines = preview ? dataLines.slice(0, 100) : dataLines;
-    const sample = displayLines.slice(0, 5);
+    const displayLines = preview ? dataLines.slice(0, Config.preview.csvMaxLines) : dataLines;
+    const sample = displayLines.slice(0, Config.preview.csvSampleLines);
     
     return {
       content: [

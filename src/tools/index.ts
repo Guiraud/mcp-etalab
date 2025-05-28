@@ -106,10 +106,10 @@ export function setupTools(): Tool[] {
           },
           maxSize: {
             type: 'number',
-            description: 'Taille maximale en MB (défaut: 10MB)',
-            default: 10,
+            description: 'Taille maximale en MB (défaut: 50MB)',
+            default: 50,
             minimum: 1,
-            maximum: 100,
+            maximum: 200,
           },
           preview: {
             type: 'boolean',
