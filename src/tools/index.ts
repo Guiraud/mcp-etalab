@@ -113,11 +113,123 @@ export function setupTools(): Tool[] {
           },
           preview: {
             type: 'boolean',
-            description: 'Aperçu seulement (100 premières lignes) - défaut: true',
+            description: 'Aperçu seulement (premières lignes) - défaut: true',
             default: true,
+          },
+          store: {
+            type: 'boolean',
+            description: 'Stocker les données en mémoire pour interrogation ultérieure - défaut: true',
+            default: true,
+          },
+          name: {
+            type: 'string',
+            description: 'Nom personnalisé pour le dataset (optionnel, extrait de l\'URL par défaut)',
           },
         },
         required: ['url'],
+      },
+    },
+    {
+      name: 'list_stored_datasets',
+      description: 'Lister tous les datasets stockés en mémoire',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'query_stored_data',
+      description: 'Interroger un dataset stocké en mémoire avec filtres, tri et limite',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'ID du dataset stocké',
+          },
+          columns: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Colonnes à récupérer (optionnel, toutes par défaut)',
+          },
+          filter: {
+            type: 'object',
+            properties: {
+              column: {
+                type: 'string',
+                description: 'Nom de la colonne à filtrer',
+              },
+              value: {
+                description: 'Valeur à rechercher',
+              },
+              operator: {
+                type: 'string',
+                enum: ['equals', 'contains', 'gt', 'lt'],
+                description: 'Opérateur de comparaison (défaut: equals)',
+              },
+            },
+            required: ['column', 'value'],
+            description: 'Filtre à appliquer (optionnel)',
+          },
+          sort: {
+            type: 'object',
+            properties: {
+              column: {
+                type: 'string',
+                description: 'Colonne pour le tri',
+              },
+              direction: {
+                type: 'string',
+                enum: ['asc', 'desc'],
+                description: 'Direction du tri',
+              },
+            },
+            required: ['column', 'direction'],
+            description: 'Tri à appliquer (optionnel)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Nombre maximum de résultats (optionnel)',
+            minimum: 1,
+          },
+        },
+        required: ['id'],
+      },
+    },
+    {
+      name: 'get_stored_dataset',
+      description: 'Obtenir les détails d\'un dataset stocké en mémoire',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'ID du dataset stocké',
+          },
+        },
+        required: ['id'],
+      },
+    },
+    {
+      name: 'remove_stored_dataset',
+      description: 'Supprimer un dataset de la mémoire',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'ID du dataset à supprimer',
+          },
+        },
+        required: ['id'],
+      },
+    },
+    {
+      name: 'clear_stored_datasets',
+      description: 'Supprimer tous les datasets stockés en mémoire',
+      inputSchema: {
+        type: 'object',
+        properties: {},
       },
     },
   ];

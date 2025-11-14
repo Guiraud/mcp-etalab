@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { z } from 'zod';
 import type { Dataset, Organization, SearchResponse } from '../types/index.js';
 import { Config } from '../config/index.js';
+import type { DataStorageService } from './DataStorageService.js';
 
 // Schémas de validation Zod
 const SearchDatasetsSchema = z.object({
@@ -32,6 +33,8 @@ const DownloadResourceSchema = z.object({
   format: z.string().optional().describe('Format attendu (CSV, JSON, XML, etc.)'),
   maxSize: z.number().default(Config.download.maxSizeMB).describe(`Taille maximale en MB (défaut: ${Config.download.maxSizeMB}MB)`),
   preview: z.boolean().default(true).describe(`Aperçu seulement (${Config.preview.csvMaxLines} premières lignes)`),
+  store: z.boolean().default(true).describe('Stocker les données en mémoire pour interrogation ultérieure'),
+  name: z.string().optional().describe('Nom personnalisé pour le dataset (optionnel)'),
 });
 
 export class DataGouvService {
@@ -186,14 +189,14 @@ export class DataGouvService {
     }
   }
 
-  async downloadResource(args: unknown) {
-    const { url, format, maxSize, preview } = DownloadResourceSchema.parse(args);
-    
+  async downloadResource(args: unknown, storageService?: DataStorageService) {
+    const { url, format, maxSize, preview, store, name } = DownloadResourceSchema.parse(args);
+
     try {
       // Vérifier la taille du fichier d'abord
       const headResponse = await this.client.head(url);
       const contentLength = headResponse.headers['content-length'];
-      
+
       if (contentLength) {
         const sizeMB = parseInt(contentLength) / (1024 * 1024);
         if (sizeMB > maxSize) {
@@ -209,16 +212,23 @@ export class DataGouvService {
 
       const data = response.data;
       const detectedFormat = this.detectFormat(url, response.headers['content-type']);
-      
+
+      // Stocker les données si demandé
+      let storedId: string | undefined;
+      if (store && storageService) {
+        const datasetName = name || this.extractNameFromUrl(url);
+        storedId = storageService.storeDataset(datasetName, url, detectedFormat, data);
+      }
+
       // Traitement selon le format
       if (detectedFormat === 'CSV') {
-        return this.processCSVData(data, preview);
+        return this.processCSVData(data, preview, storedId);
       } else if (detectedFormat === 'JSON') {
-        return this.processJSONData(data, preview);
+        return this.processJSONData(data, preview, storedId);
       } else if (detectedFormat === 'XML') {
-        return this.processXMLData(data, preview);
+        return this.processXMLData(data, preview, storedId);
       } else {
-        return this.processTextData(data, preview, detectedFormat);
+        return this.processTextData(data, preview, detectedFormat, storedId);
       }
 
     } catch (error: any) {
@@ -226,6 +236,17 @@ export class DataGouvService {
         throw new Error(`Impossible d'accéder à la ressource: ${url}`);
       }
       throw new Error(`Erreur lors du téléchargement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  private extractNameFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.split('/').pop() || 'dataset';
+      return filename.replace(/\.[^/.]+$/, ''); // Enlever l'extension
+    } catch {
+      return 'dataset';
     }
   }
 
@@ -247,14 +268,14 @@ export class DataGouvService {
     return 'UNKNOWN';
   }
 
-  private processCSVData(data: string, preview: boolean) {
+  private processCSVData(data: string, preview: boolean, storedId?: string) {
     const lines = data.split('\n').filter(line => line.trim());
     const headers = lines[0];
     const dataLines = lines.slice(1);
-    
+
     const displayLines = preview ? dataLines.slice(0, Config.preview.csvMaxLines) : dataLines;
     const sample = displayLines.slice(0, Config.preview.csvSampleLines);
-    
+
     return {
       content: [
         {
@@ -263,25 +284,28 @@ export class DataGouvService {
                 `**Format:** CSV\n` +
                 `**Nombre de lignes:** ${dataLines.length}\n` +
                 `**Colonnes:** ${headers.split(',').length}\n` +
-                `**Aperçu:** ${preview ? 'Oui (100 premières lignes)' : 'Complet'}\n\n` +
-                `## En-têtes\n\`\`\`\n${headers}\n\`\`\`\n\n` +
-                `## Échantillon (5 premières lignes)\n\`\`\`csv\n${headers}\n${sample.join('\n')}\n\`\`\`\n\n` +
+                `**Aperçu:** ${preview ? 'Oui (100 premières lignes)' : 'Complet'}\n` +
+                (storedId ? `**📦 Stocké en mémoire:** ID \`${storedId}\`\n` : '') +
+                `\n## En-têtes\n\`\`\`\n${headers}\n\`\`\`\n\n` +
+                `## Échantillon (${Config.preview.csvSampleLines} premières lignes)\n\`\`\`csv\n${headers}\n${sample.join('\n')}\n\`\`\`\n\n` +
                 `## Analyse\n` +
                 `- **Colonnes détectées:** ${headers.split(',').map(h => h.trim()).join(', ')}\n` +
-                `- **Lignes disponibles:** ${displayLines.length}${preview && dataLines.length > 100 ? ' (tronqué)' : ''}\n` +
+                `- **Lignes disponibles:** ${displayLines.length}${preview && dataLines.length > Config.preview.csvMaxLines ? ' (tronqué)' : ''}\n` +
                 `- **Utilisable pour:** Analyse de données, visualisations, statistiques\n\n` +
-                `💡 **Conseil:** Vous pouvez maintenant me demander d'analyser ces données, créer des graphiques, ou calculer des statistiques !`,
+                (storedId
+                  ? `💡 **Interroger les données:** Utilisez \`query_stored_data\` avec l'ID \`${storedId}\` pour filtrer, trier et analyser ces données.\n`
+                  : `💡 **Conseil:** Vous pouvez maintenant me demander d'analyser ces données, créer des graphiques, ou calculer des statistiques !`),
         },
       ],
     };
   }
 
-  private processJSONData(data: string, preview: boolean) {
+  private processJSONData(data: string, preview: boolean, storedId?: string) {
     try {
       const jsonData = JSON.parse(data);
       const isArray = Array.isArray(jsonData);
       const sample = isArray ? jsonData.slice(0, 3) : jsonData;
-      
+
       return {
         content: [
           {
@@ -289,12 +313,15 @@ export class DataGouvService {
             text: `# Données JSON téléchargées\n\n` +
                   `**Format:** JSON\n` +
                   `**Type:** ${isArray ? `Array (${jsonData.length} éléments)` : 'Object'}\n` +
-                  `**Aperçu:** ${preview ? 'Oui (structure seulement)' : 'Complet'}\n\n` +
-                  `## Structure\n\`\`\`json\n${JSON.stringify(sample, null, 2)}\n\`\`\`\n\n` +
+                  `**Aperçu:** ${preview ? 'Oui (structure seulement)' : 'Complet'}\n` +
+                  (storedId ? `**📦 Stocké en mémoire:** ID \`${storedId}\`\n` : '') +
+                  `\n## Structure\n\`\`\`json\n${JSON.stringify(sample, null, 2)}\n\`\`\`\n\n` +
                   `## Analyse\n` +
                   `- **Éléments:** ${isArray ? jsonData.length : 'Objet unique'}\n` +
                   `- **Utilisable pour:** Analyse de données structurées, extraction d'informations\n\n` +
-                  `💡 **Conseil:** Je peux analyser ces données JSON et extraire des informations spécifiques !`,
+                  (storedId
+                    ? `💡 **Interroger les données:** Utilisez \`query_stored_data\` avec l'ID \`${storedId}\` pour analyser ces données.\n`
+                    : `💡 **Conseil:** Je peux analyser ces données JSON et extraire des informations spécifiques !`),
           },
         ],
       };
@@ -303,10 +330,10 @@ export class DataGouvService {
     }
   }
 
-  private processXMLData(data: string, preview: boolean) {
+  private processXMLData(data: string, preview: boolean, storedId?: string) {
     const lines = data.split('\n');
-    const displayLines = preview ? lines.slice(0, 50) : lines;
-    
+    const displayLines = preview ? lines.slice(0, Config.preview.xmlMaxLines) : lines;
+
     return {
       content: [
         {
@@ -314,18 +341,21 @@ export class DataGouvService {
           text: `# Données XML téléchargées\n\n` +
                 `**Format:** XML\n` +
                 `**Lignes:** ${lines.length}\n` +
-                `**Aperçu:** ${preview ? 'Oui (50 premières lignes)' : 'Complet'}\n\n` +
-                `## Contenu\n\`\`\`xml\n${displayLines.join('\n')}\n\`\`\`\n\n` +
-                `💡 **Conseil:** Je peux parser ce XML et extraire des données spécifiques !`,
+                `**Aperçu:** ${preview ? `Oui (${Config.preview.xmlMaxLines} premières lignes)` : 'Complet'}\n` +
+                (storedId ? `**📦 Stocké en mémoire:** ID \`${storedId}\`\n` : '') +
+                `\n## Contenu\n\`\`\`xml\n${displayLines.join('\n')}\n\`\`\`\n\n` +
+                (storedId
+                  ? `💡 **Données stockées:** Utilisez \`get_stored_dataset\` avec l'ID \`${storedId}\` pour accéder à ces données.\n`
+                  : `💡 **Conseil:** Je peux parser ce XML et extraire des données spécifiques !`),
         },
       ],
     };
   }
 
-  private processTextData(data: string, preview: boolean, format: string) {
+  private processTextData(data: string, preview: boolean, format: string, storedId?: string) {
     const lines = data.split('\n');
-    const displayLines = preview ? lines.slice(0, 100) : lines;
-    
+    const displayLines = preview ? lines.slice(0, Config.preview.textMaxLines) : lines;
+
     return {
       content: [
         {
@@ -333,9 +363,12 @@ export class DataGouvService {
           text: `# Données téléchargées\n\n` +
                 `**Format:** ${format}\n` +
                 `**Lignes:** ${lines.length}\n` +
-                `**Aperçu:** ${preview ? 'Oui (100 premières lignes)' : 'Complet'}\n\n` +
-                `## Contenu\n\`\`\`\n${displayLines.join('\n')}\n\`\`\`\n\n` +
-                `💡 **Conseil:** Ces données sont maintenant disponibles pour analyse !`,
+                `**Aperçu:** ${preview ? `Oui (${Config.preview.textMaxLines} premières lignes)` : 'Complet'}\n` +
+                (storedId ? `**📦 Stocké en mémoire:** ID \`${storedId}\`\n` : '') +
+                `\n## Contenu\n\`\`\`\n${displayLines.join('\n')}\n\`\`\`\n\n` +
+                (storedId
+                  ? `💡 **Données stockées:** Utilisez \`get_stored_dataset\` avec l'ID \`${storedId}\` pour accéder à ces données.\n`
+                  : `💡 **Conseil:** Ces données sont maintenant disponibles pour analyse !`),
         },
       ],
     };
