@@ -21,28 +21,57 @@ npm run dev
 
 ## 📖 Outils disponibles
 
+### 🔍 Recherche et consultation
 - `search_datasets` - Rechercher des jeux de données
 - `get_dataset` - Obtenir les détails d'un dataset
 - `list_organizations` - Lister les organisations
 - `get_organization` - Détails d'une organisation
-- `download_resource` - **NOUVEAU** Télécharger et analyser des données (CSV, JSON, XML)
+
+### 📥 Téléchargement et analyse
+- `download_resource` - Télécharger et analyser des données (CSV, JSON, XML, TXT)
+
+### 💾 Gestion des données en mémoire
+- `list_stored_datasets` - Lister les datasets stockés en mémoire (max 5)
+- `query_stored_data` - Interroger les données avec filtres, tri et limite
+- `get_stored_dataset` - Obtenir les détails d'un dataset stocké
+- `remove_stored_dataset` - Supprimer un dataset de la mémoire
+- `clear_stored_datasets` - Vider toute la mémoire
 
 ## 🆕 Nouvelles fonctionnalités
 
 ### Téléchargement et analyse de données
-Le serveur peut maintenant télécharger directement les ressources de données et les analyser :
+Le serveur peut télécharger directement les ressources de données et les analyser :
 
 - **Formats supportés** : CSV, JSON, XML, TXT
 - **Analyse automatique** : Détection de format, structure, colonnes
 - **Aperçu intelligent** : Échantillons de données pour exploration
-- **Utilisation dans la conversation** : Les données téléchargées sont analysables par Claude
+- **Stockage en mémoire** : Les données sont automatiquement stockées pour interrogation ultérieure
 
-### Exemple d'utilisation
+### Stockage et interrogation en mémoire
+Les données téléchargées sont automatiquement stockées en mémoire (jusqu'à 5 datasets) :
 
+- **Filtrage** : Filtrez les données par colonne avec différents opérateurs (equals, contains, gt, lt)
+- **Tri** : Triez les résultats par n'importe quelle colonne (asc/desc)
+- **Limite** : Limitez le nombre de résultats
+- **Projection** : Sélectionnez uniquement les colonnes qui vous intéressent
+
+### Exemples d'utilisation
+
+#### Workflow complet
 1. **Rechercher un dataset** : `"Trouve-moi des datasets sur les transports"`
 2. **Obtenir les détails** : `"Montre-moi les ressources du dataset XYZ"`
 3. **Télécharger les données** : `"Télécharge cette ressource CSV: [URL]"`
-4. **Analyser** : `"Peux-tu analyser ces données et me faire un résumé ?"`
+4. **Lister les datasets stockés** : `"Liste les datasets en mémoire"`
+5. **Interroger les données** : `"Affiche les lignes où la colonne 'ville' contient 'Paris'"`
+
+#### Exemples de requêtes avancées
+```
+"Filtre le dataset ABC123 pour ne garder que les lignes où le prix est supérieur à 100"
+
+"Trie le dataset ABC123 par date de façon décroissante et limite à 20 résultats"
+
+"Récupère uniquement les colonnes 'nom' et 'prix' du dataset ABC123"
+```
 
 ## ⚙️ Configuration des limites
 
